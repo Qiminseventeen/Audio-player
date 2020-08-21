@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<qualifiedTypeNameHistroy>
+<fullyQualifiedTypeName name="javafx.application.Application"/>
+<fullyQualifiedTypeName name="javafx.scene.paint.Stop"/>
+<fullyQualifiedTypeName name="javafx.scene.control.Label"/>
+<fullyQualifiedTypeName name="javafx.scene.shape.Rectangle"/>
+<fullyQualifiedTypeName name="javafx.scene.image.Image"/>
+<fullyQualifiedTypeName name="javafx.scene.Cursor"/>
+<fullyQualifiedTypeName name="java.util.List"/>
+<fullyQualifiedTypeName name="javafx.scene.image.ImageView"/>
+<fullyQualifiedTypeName name="javafx.scene.control.TableView"/>
+<fullyQualifiedTypeName name="javafx.scene.effect.GaussianBlur"/>
+<fullyQualifiedTypeName name="javafx.scene.paint.Color"/>
+<fullyQualifiedTypeName name="javafx.util.Duration"/>
+<fullyQualifiedTypeName name="javafx.scene.control.TableColumn"/>
+<fullyQualifiedTypeName name="javafx.scene.paint.LinearGradient"/>
+<fullyQualifiedTypeName name="javafx.scene.control.ScrollPane"/>
+<fullyQualifiedTypeName name="javafx.scene.control.TableRow"/>
+<fullyQualifiedTypeName name="java.io.File"/>
+<fullyQualifiedTypeName name="javafx.scene.paint.CycleMethod"/>
+<fullyQualifiedTypeName name="cn.feitan.utils.XMLUtils"/>
+<fullyQualifiedTypeName name="javafx.geometry.Insets"/>
+<fullyQualifiedTypeName name="com.sun.org.apache.xml.internal.security.keys.content.KeyValue"/>
+<fullyQualifiedTypeName name="javafx.scene.text.Font"/>
+<fullyQualifiedTypeName name="javafx.animation.KeyValue"/>
+<fullyQualifiedTypeName name="java.math.BigDecimal"/>
+<fullyQualifiedTypeName name="java.io.BufferedReader"/>
+<fullyQualifiedTypeName name="java.io.InputStreamReader"/>
+<fullyQualifiedTypeName name="java.io.FileInputStream"/>
+<fullyQualifiedTypeName name="javafx.scene.media.MediaPlayer"/>
+<fullyQualifiedTypeName name="javafx.beans.value.ChangeListener"/>
+<fullyQualifiedTypeName name="java.util.Date"/>
+<fullyQualifiedTypeName name="java.text.SimpleDateFormat"/>
+<fullyQualifiedTypeName name="javafx.scene.media.MediaPlayer.Status"/>
+<fullyQualifiedTypeName name="org.jaudiotagger.audio.mp3.MP3File"/>
+</qualifiedTypeNameHistroy>

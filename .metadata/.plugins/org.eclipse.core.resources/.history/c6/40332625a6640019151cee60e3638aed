@@ -1,0 +1,1097 @@
+package cn.feitan.mediaplayer;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+
+import org.omg.PortableServer.THREAD_POLICY_ID;
+
+import cn.feitan.utils.MP3Utils;
+import cn.feitan.utils.XMLUtils;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
+import javafx.application.Application;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Cursor;
+import javafx.scene.Node;
+import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Slider;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
+import javafx.scene.control.TableView;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.effect.GaussianBlur;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.image.PixelReader;
+import javafx.scene.image.PixelWriter;
+import javafx.scene.image.WritableImage;
+import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.BackgroundFill;
+import javafx.scene.layout.Border;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.BorderStroke;
+import javafx.scene.layout.BorderStrokeStyle;
+import javafx.scene.layout.BorderWidths;
+import javafx.scene.layout.CornerRadii;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+import javafx.scene.media.MediaPlayer;
+import javafx.scene.paint.Color;
+import javafx.scene.paint.CycleMethod;
+import javafx.scene.paint.LinearGradient;
+import javafx.scene.paint.Stop;
+import javafx.scene.shape.Circle;
+import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Font;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
+import javafx.util.Duration;
+
+public class MainApp extends Application {
+
+	// 1.主舞台对象
+		private Stage primaryStage;
+		// 2.最大化前舞台的x,y坐标
+		private double resetX;
+		private double resetY;
+		// 3.最大化之前舞台的宽度、高度
+		private double resetWidth;
+		private double resetHeight;
+		// 4.窗体拖动前x，y坐标
+		private double mouseX;
+		private double mouseY;
+		//5.播放按钮的图像对象
+		private ImageView butPlayImage;
+		//6.播放按钮的Label对象
+		private Label labPlay;
+		//7.显示一播放时间的Label对象
+		private Label labPlayTime;
+		//8.播放的滚动条对象
+		private Slider sliderSong;
+		//9.显示总的MP3时间的Label
+		private Label labTotalTime;
+		//10.音量的进度条对象
+		private ProgressBar volumeProgress;
+		//11.拖动右下角改变窗体大小的x,y坐标
+		private double xOffset;
+		private double yOffset;
+		//12.音量的滚动条
+		private Slider sldVolume;
+		//13.中间面板的显示歌单名称的Label对象
+		private Label labGroupName;
+		//14.旋转的图片的ImageView对象
+		private ImageView panImageView;
+		//15.旋转的动画对象
+		private Timeline timeline;
+		//16.歌词的VBox对象--里面封装每行歌词的Label
+		private VBox IrcVBox;
+		//17.背景图片
+		private ImageView backImageView;
+		//18.下侧面板的歌曲列表
+		private TableView<PlayBean> tableView;
+		//19.封装所有已创建的歌单列表的VBox
+		private VBox groupVBox=new VBox();
+		//20.记录当前播放的Table的行
+		private int currentIndex=0;
+		//21.播放的前一秒的值
+		private int prevSecond=0;
+		//22.当前播放的PlayBean对象
+		private PlayBean currentPlayBean;
+		//23.标记当前的播放模式
+		private int playMode = 1;//1表示列表循环  2表示单曲循环  3表示随机播放
+		//24.一个存储歌词时间的集合
+		private List<BigDecimal> IrcList = new ArrayList<>();
+		//25.当前歌词行的索引
+		private int currentLrcIndex = 0;
+
+		
+		@Override
+		public void start(Stage primaryStage) throws Exception {
+			this.primaryStage = primaryStage;
+			// 第一步： 创建一个场景对象
+			// 一个布局容器对象
+			BorderPane borderPane = new BorderPane();
+			borderPane.setTop(getTopPane());
+			borderPane.setLeft(getLeftPane());
+			borderPane.setBottom(getBottomPane());
+			borderPane.setCenter(getCenterPane());
+
+			// 设置布局容器的背景颜色
+			borderPane.setBackground(new Background(new BackgroundFill(Color.BLACK, null, null)));
+			// 创建场景对象
+			Scene scene = new Scene(borderPane, 1000, 600);
+			// 第二步：将场景设置到舞台
+			primaryStage.setScene(scene);
+			// 去掉舞台的标题栏
+			primaryStage.initStyle(StageStyle.TRANSPARENT);
+			// 第三步：显示舞台
+			primaryStage.show();
+
+		}
+
+		//创建一个中间的面板
+		private BorderPane getCenterPane() {
+			//歌单：标签
+			Label lab1 = new Label("歌单");
+			lab1.setTextFill(Color.rgb(180, 0, 0));//文字：暗红色
+			//创建一个边框对象，用来修饰lab1
+			BorderStroke bs=new BorderStroke(
+					Color.rgb(180, 0, 0),//四个边的颜色
+					Color.rgb(180, 0, 0),
+					Color.rgb(180, 0, 0),
+					Color.rgb(180, 0, 0),
+					BorderStrokeStyle.SOLID,//四条边的线型--实线
+					BorderStrokeStyle.SOLID,
+					BorderStrokeStyle.SOLID,
+					BorderStrokeStyle.SOLID,
+					new CornerRadii(1),
+					new BorderWidths(1),
+					new Insets(1,2,1,2)
+					);
+			lab1.setBorder(new Border(bs));
+			lab1.setLayoutX(30);
+			lab1.setLayoutY(10);
+			lab1.setPrefWidth(52);
+			lab1.setPrefHeight(25);
+			lab1.setAlignment(Pos.CENTER);
+			
+			//3.歌单名称：标签--由于labGroupName标签需要被其他方法共用，所以声明为成员属性
+			labGroupName=new Label("(无记录)");
+			labGroupName.setLayoutX(90);
+			labGroupName.setLayoutY(9);
+			labGroupName.setTextFill(Color.BLUE);
+			labGroupName.setFont(new Font("黑体",15));
+			labGroupName.setPrefWidth(100);
+			labGroupName.setAlignment(Pos.CENTER_LEFT);
+			
+			//4.碟片的图片--由于panImageView标签被其他方法共用，所以声明为成员属性
+			panImageView = new ImageView("img/center/pan_default.jpg");
+			panImageView.setFitHeight(150);
+			panImageView.setFitWidth(150);
+			Label lab2=new Label("",panImageView);
+			lab2.setLayoutX(30);
+			lab2.setLayoutY(60);
+			
+			//定义一个圆
+			Circle circle = new Circle();
+			circle.setCenterX(75);
+			circle.setCenterY(75);
+			circle.setRadius(75);//圆的半径
+			
+			panImageView.setClip(circle);//用圆形来钉住碟片图片
+			
+			//定义一个“时间轴”动画
+			
+			timeline=new Timeline();
+			timeline.getKeyFrames().addAll(
+					new KeyFrame(new Duration(0),new KeyValue(panImageView.rotateProperty(),0)),
+					//16*1000表示16秒，后面360表示16秒旋转360度
+					new KeyFrame(new Duration(16*1000),new KeyValue(panImageView.rotateProperty(),360))
+					);
+			timeline.setCycleCount(Timeline.INDEFINITE);//无限循环
+			
+			//5.歌词的VBox容器
+			IrcVBox=new VBox(15);
+			IrcVBox.setPadding(new Insets(20,20,20,20));
+			IrcVBox.setLayoutX(200);
+			IrcVBox.setLayoutY(0);
+			
+			//6.歌单列表标签
+			Label lab3=new Label("歌单列表");
+			lab3.setPrefWidth(80);
+			lab3.setPrefHeight(25);
+			lab3.setAlignment(Pos.CENTER);
+			lab3.setBackground(new Background(new BackgroundFill(Color.rgb(180, 0, 0),null,null)));
+			lab3.setLayoutX(30);
+			lab3.setLayoutY(225);
+			
+			//7.背景模糊
+			Image image = new Image("img/center/pan_default.jpg");
+			//获取“像素读取器”
+			PixelReader pr = image.getPixelReader();
+			//创建一个WritableImage
+			WritableImage wImage = new WritableImage(
+					(int)image.getWidth(),
+					(int)image.getHeight()
+					);
+			//创建一个“像素写入器”
+			PixelWriter pixelWriter = wImage.getPixelWriter();
+			//循环读取image中的每一个像素
+			for(int i = 0;i < image.getHeight();i++) {
+				for(int j = 0;j < image.getWidth();j++) {
+					Color color = pr.getColor(i, j);
+					for(int k = 0;k < 4;k++) {//四次淡化
+						color = color.darker();//将当前的颜色淡化
+					}
+					pixelWriter.setColor(i,j,color);
+				}
+			}
+			
+			backImageView = new ImageView(wImage);
+			backImageView.setLayoutX(0);
+			backImageView.setLayoutY(0);
+			backImageView.setFitWidth(300);
+			backImageView.setFitHeight(300);
+			
+			//高斯模糊
+			GaussianBlur gaussianBlur = new GaussianBlur();
+			gaussianBlur.setRadius(63);
+			
+			backImageView.setEffect(gaussianBlur);
+			
+			//一条红线Label
+			Label labLine = new Label();
+			labLine.setMinHeight(0);
+			labLine.setPrefHeight(2);
+			labLine.setBackground(new Background(new BackgroundFill(Color.rgb(180, 0, 0),null,null)));
+			labLine.setLayoutX(0);
+			labLine.setLayoutY(lab3.getLayoutY()+lab3.getPrefHeight());
+			
+			//AnchorPane:用于封装：背景图片，旋转图片，歌单列表标签，歌词容器，一条红线
+			AnchorPane anchorPane = new AnchorPane();
+			anchorPane.setBackground(new Background(new BackgroundFill(Color.BLACK,null,null)));
+			anchorPane.getChildren().addAll(backImageView,lab1,labGroupName,lab2,IrcVBox,lab3,labLine);
+			//上侧的ScrollPane:用于封装上边的 AnchorPane
+			ScrollPane scrollPane = new ScrollPane();
+			//设置滚动面板的滚动条不可见
+			scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+			scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+			
+			scrollPane.setPadding(new Insets(0,0,0,0));
+			scrollPane.setContent(anchorPane);
+			scrollPane.setPrefHeight(252);
+			scrollPane.setMouseTransparent(true);//使ScrollPane不接受鼠标事件
+			
+			//让anchorPane的宽度、高度随着ScrollPane的高度、宽度而改变
+			anchorPane.prefWidthProperty().bind(scrollPane.widthProperty());
+			anchorPane.prefHeightProperty().bind(scrollPane.heightProperty());
+			//让背景图片的高度、宽度随着ScrollPane的宽度、高度而改变
+			backImageView.fitWidthProperty().bind(scrollPane.widthProperty());
+			backImageView.fitHeightProperty().bind(scrollPane.heightProperty());
+			//红线宽度、高度随着ScrollPane的改变而改变
+			labLine.prefWidthProperty().bind(scrollPane.widthProperty());
+			
+			//*****************上侧完成***************//
+			//*****************下侧：歌单列表***********//
+			tableView = new TableView<>();
+			tableView.setPrefWidth(780);
+			//绑定css样式
+			tableView.getStylesheets().add("css/playTable.css");
+			
+			//设置每一列
+			TableColumn c1=new TableColumn("序号");
+			c1.setPrefWidth(65);
+			c1.setCellValueFactory(new PropertyValueFactory<>("id"));
+			
+	        TableColumn c2 = new TableColumn("音乐标题");
+	        c2.setPrefWidth(250);
+	        c2.setCellValueFactory(new PropertyValueFactory<>("soundName"));
+			
+			TableColumn c3 = new TableColumn("歌手");
+			c3.setPrefWidth(130);
+			c3.setCellValueFactory(new PropertyValueFactory<>("artist"));
+			
+			TableColumn c4 = new TableColumn("专辑");
+			c4.setPrefWidth(130);
+			c4.setCellValueFactory(new PropertyValueFactory<>("album"));
+			
+			TableColumn c5 = new TableColumn("大小");
+			c5.setPrefWidth(80);
+			c5.setCellValueFactory(new PropertyValueFactory<>("length"));
+			
+			TableColumn c6 = new TableColumn("时间");
+			c6.setPrefWidth(80);
+			c6.setCellValueFactory(new PropertyValueFactory<>("time"));
+			
+			TableColumn c7 = new TableColumn("操作");
+			c7.setPrefWidth(60);
+			c7.setCellValueFactory(new PropertyValueFactory<>("labDelete"));
+			
+			tableView.getColumns().addAll(c1,c2,c3,c4,c5,c6,c7);
+			
+			
+			//为表格添加一个双击事件监听
+			tableView.setRowFactory(tv -> {
+				TableRow<PlayBean>row = new TableRow<>();
+				row.setOnMouseClicked(event -> {
+					//验证双击
+					if(event.getClickCount() == 2 && !row.isEmpty()) {
+						//1.获取选中行的索引
+						this.currentIndex = row.getIndex();
+						//2.设置前一秒值为0
+						this.prevSecond = 0;
+						//3.判断当前是否在播放
+						if(this.currentPlayBean != null) {
+							//停止播放
+							this.currentPlayBean.getMediaPlayer().stop();
+						}
+						//4.获取当前行的PlayBean
+						this.currentPlayBean = row.getItem();
+						//5.播放
+						play();
+					}
+				});
+				return row;
+			});
+			
+			//*******************总的BorderPane***************//
+			BorderPane borderPane = new BorderPane();
+			borderPane.setTop(scrollPane);
+			borderPane.setCenter(tableView);
+			//将“最后一列”随窗体的大小改变而改变，可以该做其他列
+//			c7.prefWidthProperty().bind(borderPane.widthProperty());
+			return borderPane;
+		}
+
+		//获取下侧面板
+		private BorderPane getBottomPane() {
+			//***********************左侧的三个按钮***************//
+			//1.上一曲
+			ImageView v1 = new ImageView("img/topandbottom/LastDark.png");
+			v1.setFitHeight(30);
+			v1.setFitWidth(30);
+			Label lab1 = new Label("",v1);
+			lab1.setOnMouseEntered(e->v1.setImage(new Image("img/topandbottom/Last.png")));
+			lab1.setOnMouseExited(e->v1.setImage(new Image("img/topandbottom/LastDark.png")));
+			lab1.setOnMouseClicked(e -> {
+				//1.列表是否正在播放
+				if(this.currentPlayBean != null) {
+					this.currentPlayBean.getMediaPlayer().stop();
+				}
+				//2.停止光盘的旋转
+				this.timeline.stop();
+				
+				//3.当前索引-1
+				this.currentIndex--;
+				//判断是否小于0
+				if(this.currentIndex < 0) {
+					if(this.playMode == 1) {//列表循环
+						this.currentIndex = this.tableView.getItems().size() - 1;//定位到最后一首
+					}else {
+						this.currentIndex = 0;
+					}
+				}
+				//设置表格的选中
+				this.tableView.getSelectionModel().select(this.currentIndex);
+				//设置全局的当前播放对象
+				this.currentPlayBean = this.tableView.getItems().get(currentIndex);
+				//开始播放
+				play();
+				
+			});
+			
+			//2.播放按钮
+			butPlayImage = new ImageView("img/topandbottom/PlayDark.png");
+			butPlayImage.setFitWidth(30);
+			butPlayImage.setFitHeight(30);
+			labPlay = new Label("",butPlayImage);
+			labPlay.setOnMouseEntered(e->butPlayImage.setImage(new Image("img/topandbottom/Play.png")));
+			labPlay.setOnMouseExited(e->butPlayImage.setImage(new Image("img/topandbottom/PlayDark.png")));
+			
+			//3.下一首
+			ImageView v3 = new ImageView("img/topandbottom/NextDark.png");
+			v3.setFitWidth(30);
+			v3.setFitHeight(30);
+			Label lab3 = new Label("",v3);
+			lab3.setOnMouseEntered(e -> v3.setImage(new Image("img/topandbottom/Next.png")));
+			lab3.setOnMouseExited(e -> v3.setImage(new Image("img/topandbottom/NextDark.png")));
+			lab3.setOnMouseClicked(e -> {
+				if(currentPlayBean != null) {
+					this.currentPlayBean.getMediaPlayer().stop();
+				}
+				this.timeline.stop();
+				//当前索引 + 1
+				 this.currentIndex++;
+				 //判断是否是最后一首
+				 if(currentIndex >= this.tableView.getItems().size()) {
+					 if(this.playMode == 1) {//列表循环
+						 this.currentIndex = 0;//定位到第一首
+					 }else {
+						 this.currentIndex = this.tableView.getItems().size() - 1;
+					 }
+				 }
+				 //设置Table的选中
+				 this.tableView.getSelectionModel().select(currentIndex);
+				 //设置播放对象
+				 this.currentPlayBean = this.tableView.getItems().get(currentIndex);
+				 //开始播放
+				 play();
+			});
+			
+			HBox hBox1 = new HBox(30);
+			hBox1.setPrefWidth(255);
+			hBox1.setPadding(new Insets(5,10,5,30));
+			hBox1.getChildren().addAll(lab1,labPlay,lab3);
+			
+			//********************中间滚动条部分*****************//
+			
+			//1.已播放的时间
+			labPlayTime=new Label("00:00");
+			labPlayTime.setPrefHeight(50);
+			labPlayTime.setPrefWidth(40);
+			labPlayTime.setTextFill(Color.WHITE);
+			//2.滚动条
+			sliderSong=new Slider();
+			sliderSong.setMinWidth(0);
+			sliderSong.setMinHeight(0);
+			sliderSong.setPrefWidth(300);
+			sliderSong.setPrefHeight(12);
+			sliderSong.getStylesheets().add("css/TopAndBottomPage.css");
+			
+			//进度条
+			ProgressBar pb1=new ProgressBar(0);
+			pb1.setProgress(0);
+			pb1.setMinWidth(0);
+			pb1.setMinHeight(0);
+			
+			pb1.setMaxWidth(5000);
+			pb1.setPrefWidth(300);
+			pb1.getStylesheets().add("css/TopAndBottomPage.css");
+			
+			//使用StackPane来存储滚动条和进度条
+			StackPane stackPane=new StackPane();
+			stackPane.getChildren().addAll(pb1,sliderSong);
+			
+			//3.总时间标签
+			labTotalTime=new Label("00:00");
+			labTotalTime.setPrefWidth(40);
+			labTotalTime.setPrefHeight(50);
+			labTotalTime.setTextFill(Color.WHITE);
+			labTotalTime.setAlignment(Pos.CENTER_RIGHT);
+			
+			BorderPane borderPane=new BorderPane();
+			borderPane.setLeft(labPlayTime);
+			borderPane.setCenter(stackPane);
+			borderPane.setRight(labTotalTime);
+			borderPane.setPrefHeight(50);
+			
+			labPlayTime.prefHeightProperty().bind(borderPane.prefHeightProperty());
+			sliderSong.prefHeightProperty().bind(borderPane.prefHeightProperty());
+			labTotalTime.prefHeightProperty().bind(borderPane.prefHeightProperty());
+			
+			//******************右侧的几个组件********************//
+			//1.音量图片
+			ImageView v5 = new ImageView("img/topandbottom/VolumnDark.png");
+			v5.setFitWidth(17);
+			v5.setFitHeight(17);
+			Label lab5=new Label("",v5);
+			lab5.setOnMouseEntered(e -> v5.setImage(new Image("img/topandbottom/Volumn.png")));
+			lab5.setOnMouseExited(e -> v5.setImage(new Image("img/topandbottom/VolumnDark.png")));
+			
+			//2.音量滚动条
+			sldVolume = new Slider();
+			sldVolume.setMax(100);
+			sldVolume.setValue(50);
+			sldVolume.setMajorTickUnit(1);//每进一格，增加多少的值
+			
+			sldVolume.setMinHeight(0);
+	       // sldVolume.setPrefHeight(10);
+			sldVolume.setPrefWidth(100);
+			sldVolume.getStylesheets().add("css/TopAndBottomPage.css");
+			
+			//进度条
+			volumeProgress=new ProgressBar(0);
+			volumeProgress.setMinHeight(0);
+			volumeProgress.setProgress(0.5);//初始在中间位置
+			volumeProgress.setPrefWidth(100);
+			volumeProgress.setPrefHeight(10);
+			volumeProgress.prefWidthProperty().bind(sldVolume.prefWidthProperty());
+			volumeProgress.getStylesheets().add("css/TopAndBottomPage.css");
+			
+			StackPane sp2 = new StackPane();
+			sp2.getChildren().addAll(volumeProgress,sldVolume);
+			
+			//3.播放模式图片
+			ImageView v6 = new ImageView("img/topandbottom/RepeatDark.png");
+			v6.setFitWidth(25);
+			v6.setFitHeight(25);
+			Label lab6 = new Label("",v6);
+			
+			//4.歌词图片
+			ImageView v7 = new ImageView("img/topandbottom/ciDark.png");
+			v7.setFitHeight(25);
+			v7.setFitWidth(25);
+			Label lab7 = new Label("",v7);
+			
+			//5.拖拽图片
+			ImageView v8 = new ImageView("img/topandbottom/right_drag.png");
+			v8.setFitHeight(50);
+			v8.setFitWidth(30);
+			Label lab8 = new Label("",v8);
+			//当鼠标按下时
+			lab8.setOnMousePressed(e -> {
+				//记录当前鼠标的x,y坐标
+				xOffset=e.getSceneX();
+				yOffset=e.getSceneY();
+			});
+			//当鼠标移动时
+			lab8.setOnMouseMoved(e->{
+				if(e.getY() > 34 && e.getY() < 50 && e.getX()> 0 && e.getX() < 30) {
+					//改变鼠标的形状
+					lab8.setCursor(Cursor.NW_RESIZE);
+				}else {
+					lab8.setCursor(Cursor.DEFAULT);
+				}
+			});
+			//当鼠标拖拽时
+			lab8.setOnMouseDragged(e -> {
+				if(primaryStage.getWidth() + (e.getScreenX()-xOffset) >= 1200) {
+					primaryStage.setWidth(primaryStage.getWidth() + (e.getScreenX()-xOffset));
+					xOffset=e.getScreenX();
+				}
+				if(primaryStage.getHeight() + (e.getScreenY()-yOffset) >= 800) {
+					primaryStage.setHeight(primaryStage.getHeight() + (e.getScreenY()-yOffset));
+				}
+			});
+			HBox hBox=new HBox(15);
+			hBox.setPadding(new Insets(0,0,0,10));
+			hBox.setPrefWidth(270);
+			hBox.setAlignment(Pos.CENTER_LEFT);
+			hBox.getChildren().addAll(lab5,sp2,lab6,lab7,lab8);
+			
+			//***************总的BorderPane *****************//
+			BorderPane bottomPane=new BorderPane();
+			bottomPane.setLeft(hBox1);
+			bottomPane.setCenter(borderPane);
+			bottomPane.setRight(hBox);
+			bottomPane.setPrefHeight(35);
+			
+			return bottomPane;
+		}
+
+		// 创建左侧面板
+		private BorderPane getLeftPane() {
+			// 1.显示作者图标
+			ImageView v1 = new ImageView("img/topandbottom/juhua.png");
+			v1.setFitWidth(155);
+			v1.setPreserveRatio(true);// 根据高度保持宽高比
+
+			// 2.作者的Label
+			Label labAuthor = new Label("作者：史典飞");
+			labAuthor.setPrefWidth(150);
+			labAuthor.setTextFill(Color.YELLOW);
+			labAuthor.setFont(new Font("黑体", 18));
+			labAuthor.setAlignment(Pos.CENTER);// 居中对齐
+
+			// 3.创建日期的Label
+			Label labDate = new Label("日期：2019-4-15");
+			labDate.setPrefWidth(155);
+			labDate.setTextFill(Color.YELLOW);
+			labDate.setFont(new Font("黑体", 18));
+			labDate.setAlignment(Pos.CENTER);
+			
+			//4.已创建歌单：Label
+			Label labGd=new Label("已创建歌单");
+			labGd.setPrefWidth(150);
+			labGd.setPrefHeight(20);
+			labGd.setTextFill(Color.rgb(30, 200, 200));
+			
+			//5.+符号：ImageView
+			ImageView v2=new ImageView("img/left/create_2_Dark.png");
+			v2.setFitWidth(15);
+			v2.setPreserveRatio(true);
+			
+			Label lab=new Label("",v2);
+			lab.setPrefWidth(15);
+			lab.setPrefHeight(15);
+			lab.setOnMouseEntered(e -> v2.setImage(new Image("img/left/create_2.png")));
+			lab.setOnMouseExited(e -> v2.setImage(new Image("img/left/create_2_Dark.png")));
+			//鼠标点击事件
+			lab.setOnMouseClicked(e->{
+				//创建一个新的舞台对象--AddGroup对象
+				new AddGroup(this.primaryStage,this.groupVBox,this);
+			});
+			
+			//封装4和5的控件的HBox(水平布局)
+			HBox hBox=new HBox(5);
+			hBox.getChildren().addAll(labGd,lab);
+		
+			// 一个VBox（垂直的）容器
+			VBox vBox = new VBox(15);
+			vBox.setPrefWidth(205);
+			vBox.setPrefHeight(250);
+			vBox.setPadding(new Insets(5, 5, 5, 10));
+			vBox.getChildren().addAll(v1, labAuthor, labDate,hBox);
+			
+			//读取所有创建的歌单
+			List<String> groupList = XMLUtils.readAllGroup();
+			//创建一个存储每个歌单的HBox对象的集合
+			List<HBox> hBoxList = new ArrayList<>();
+			for(String s : groupList) {
+				hBoxList.add(this.getGroupHBox(s));
+			}
+			//封装所有已创建的VBox对象
+			groupVBox = new VBox(10);
+			groupVBox.setPrefWidth(205);
+			groupVBox.setPadding(new Insets(10,0,0,15));
+			for(HBox h : hBoxList) {
+				groupVBox.getChildren().add(h);
+			}
+
+			// *****************BorderPane对象 ****************************//
+			BorderPane borderPane = new BorderPane();
+			borderPane.setTop(vBox);
+			borderPane.setCenter(groupVBox);
+			return borderPane;
+		}
+
+
+		//创建上侧面板
+		private BorderPane getTopPane() {
+			// 1 左侧Logo
+			ImageView imgView1 = new ImageView("img/topandbottom/heima.png");
+			// 设置图片高度，40个像素
+			imgView1.setFitHeight(35);
+			imgView1.setPreserveRatio(true);// 根据设定的图片高度，保持宽高比
+
+			// 2 创建一个HBox容器，放一些图片组件
+			HBox hBox = new HBox();
+			hBox.setAlignment(Pos.CENTER_LEFT);// 设置左对齐
+			hBox.setPrefWidth(600);// 设置宽度为600个像素
+			hBox.setPrefHeight(40);// 设置容器高度为50个像素
+
+			// 设置内部元素与四边的距离
+			hBox.setPadding(new Insets(10, 0, 10, 60));// 上，右，下，左
+			hBox.getChildren().add(imgView1);
+
+			// 右边最小化按钮
+			ImageView v1 = new ImageView("img/topandbottom/MinmizeDark.png");
+			v1.setFitWidth(13);
+			v1.setFitHeight(13);
+			Label lab1 = new Label("", v1);
+			// 添加鼠标移入移出事件
+			lab1.setOnMouseEntered(e -> v1.setImage(new Image("img/topandbottom/Minmize.png")));
+			lab1.setOnMouseExited(e -> v1.setImage(new Image("img/topandbottom/MinmizeDark.png")));
+			lab1.setOnMouseClicked(e -> this.primaryStage.setIconified(true));
+
+			// 右边最大化按钮
+			ImageView v2 = new ImageView("img/topandbottom/MaximizeDark.png");
+			v2.setFitWidth(13);
+			v2.setFitHeight(13);
+			Label lab2 = new Label("", v2);
+			lab2.setOnMouseEntered(e -> v2.setImage(new Image("img/topandbottom/Maximize.png")));
+			lab2.setOnMouseExited(e -> v2.setImage(new Image("img/topandbottom/MaximizeDark.png")));
+			lab2.setOnMouseClicked(e -> {
+				// 判断当前的状态是否是最大化
+				if (!this.primaryStage.isMaximized()) {// 正常状态
+					// 记录之前舞台的x,y坐标，宽度、高度的值
+					this.resetX = this.primaryStage.getX();
+					this.resetY = this.primaryStage.getY();
+					this.resetWidth = this.primaryStage.getWidth();
+					this.resetHeight = this.primaryStage.getHeight();
+
+					// 最大化
+					this.primaryStage.setMaximized(true);
+
+					// 更换图片
+					v2.setImage(new Image("img/topandbottom/resetDark.png"));
+					lab2.setOnMouseEntered(ee -> v2.setImage(new Image("img/topandbottom/reset.png")));
+					lab2.setOnMouseExited(ee -> v2.setImage(new Image("img/topandbottom/resetDark.png")));
+
+				} else {// 最大化状态-->还原
+						// 将舞台的x,y，宽度，高度设置为之前的值
+					this.primaryStage.setX(this.resetX);
+					this.primaryStage.setY(this.resetY);
+					this.primaryStage.setWidth(this.resetWidth);
+					this.primaryStage.setHeight(this.resetHeight);
+
+					// 设置为还原状态
+					this.primaryStage.setMaximized(false);
+
+					// 设置图片
+					v2.setImage(new Image("img/topandbottom/MaximizeDark.png"));
+					lab2.setOnMouseEntered(ee -> v2.setImage(new Image("img/topandbottom/maximize.png")));
+					lab2.setOnMouseDragExited(ee -> v2.setImage(new Image("img/topandbottom/MaximizeDark.png")));
+				}
+			});// 匿名的内部类
+
+			// 关闭按钮
+			ImageView v3 = new ImageView("img/topandbottom/CloseDark.png");
+			v3.setFitWidth(13);
+			v3.setFitHeight(13);
+			Label lab3 = new Label("", v3);
+			lab3.setOnMouseEntered(e -> v3.setImage(new Image("img/topandbottom/Close.png")));
+			lab3.setOnMouseExited(e -> v3.setImage(new Image("img/topandbottom/CloseDark.png")));
+			lab3.setOnMouseClicked(e -> {
+				System.exit(0);
+			});
+
+			// 封装三个图片
+			HBox hBox2 = new HBox(20);// 设置内部元素之间的间距为15像素
+			hBox2.setAlignment(Pos.CENTER_LEFT);
+			hBox2.setPrefWidth(110);
+			hBox2.setPrefHeight(50);
+			hBox2.getChildren().addAll(lab1, lab2, lab3);
+
+			// 头部的红色分隔线
+			Rectangle rct = new Rectangle();
+			rct.setX(0);
+			rct.setY(0);
+			rct.setWidth(100);
+			rct.setHeight(2);
+			// 设置背景渐变
+			Stop[] stops = new Stop[] { new Stop(0, Color.rgb(120, 8, 14)), new Stop(0.5, Color.RED),
+					new Stop(1, Color.rgb(120, 8, 14)), };
+
+			// 为矩形设置渐变的样式
+			rct.setFill(new LinearGradient(0, 0, 1, 1, true, CycleMethod.NO_CYCLE, stops));
+
+			// *****************总的BorderPane**************//
+			BorderPane borderPane = new BorderPane();
+			borderPane.setLeft(hBox);
+			borderPane.setRight(hBox2);
+			borderPane.setBottom(rct);
+
+			// 设置矩形红线绑定到舞台的宽度
+			rct.widthProperty().bind(this.primaryStage.widthProperty());
+
+			// 监听borderPane鼠标按下事件
+			borderPane.setOnMousePressed(e -> {
+				// 记录鼠标相对于窗体的x，y坐标
+				this.mouseX = e.getSceneX();
+				this.mouseY = e.getSceneY();
+			});
+
+			// 当鼠标拖拽时
+			borderPane.setOnMouseDragged(e -> {
+				// 设置新的x,y
+				this.primaryStage.setX(e.getScreenX() - mouseX);
+				this.primaryStage.setY(e.getScreenY() - mouseY);// 每次位置拖动都会进行计算
+
+			});
+			return borderPane;
+		}
+
+		//播放
+		private void play() {
+			//1.读取歌词
+			loadLrc();
+			
+			//2.设置总时间
+			this.labTotalTime.setText(this.currentPlayBean.getTime());
+			//3.将滚动条归为
+			
+			//4.设置初始音量
+			
+			//5.开始播放
+			new Thread() {
+				public void run() {
+					currentPlayBean.getMediaPlayer().play();
+				};
+			}.start();
+			
+			//6.设置碟片
+			if(this.currentPlayBean.getImage() != null) {
+				this.panImageView.setImage(this.currentPlayBean.getImage());
+			}
+			//7.设置旋转
+			this.timeline.stop();
+			this.timeline.play();
+			
+			//8.设置背景
+			WritableImage wImage = currentPlayBean.getImage();
+			if(wImage != null) {
+				//创建一个新的WritableImage对象
+				WritableImage newWritableImage = new WritableImage((int)wImage.getWidth(),(int)wImage.getHeight());
+				
+				//创建一个读取器
+				PixelReader pr = wImage.getPixelReader();
+				//创建一个"像素写入器"
+				PixelWriter pw = newWritableImage.getPixelWriter();
+				//循环读取image中的每个像素
+				for(int i = 0;i < wImage.getHeight();i++) {
+					for(int j = 0;j < wImage.getWidth();j++) {
+						Color color=pr.getColor(i, j);
+						for(int k = 0;k<4;k++) {//四次淡化
+							color = color.darker();//将当前的颜色淡化
+						}
+						pw.setColor(i, j, color);
+					}
+				}
+				//设置虚化后的背景
+				this.backImageView.setImage(newWritableImage);
+			}else {
+				//如果MP3没有图片，设置为默认的“碟片”的图片
+				//设置为默认图片
+				
+				Image image = new Image("img/center/pan_default.jpg");
+				//获取“像素读取器”
+				PixelReader pr = image.getPixelReader();
+				//创建一个WritableImage
+				WritableImage wwImage = new WritableImage((int)image.getWidth(),(int)image.getHeight());
+				//创建一个“像素写入器”
+				PixelWriter pixelWriter = wwImage.getPixelWriter();
+				//循环读取image的每个像素
+				for(int i = 0;i < image.getHeight();i++) {
+					for(int j = 0;j < image.getWidth();j++) {
+						Color color = pr.getColor(i, j);
+						for(int k = 0;k < 4;k++) {//四次淡化
+							color = color.darker();//将当前的颜色淡化
+						}
+						pixelWriter.setColor(i, j, color);
+					}
+				}
+				this.backImageView.setImage(wwImage);
+			}
+			//设置播放按钮为暂停图片
+			this.butPlayImage.setImage(new Image("img/topandbottom/PauseDark.png"));
+			this.labPlay.setOnMouseEntered(e -> butPlayImage.setImage(new Image("img/topandbottom/Pause.png")));
+			this.labPlay.setOnMouseExited(e -> butPlayImage.setImage(new Image("img/topandbottom/PauseDark.png")));
+			
+		}
+		
+		private void loadLrc() {
+			//判断当前是否在播放
+			if(this.currentPlayBean == null) {
+				return;
+			}
+			//初始化lrcVBox对象
+			this.IrcVBox.getChildren().clear();//清空以前的歌词
+			this.IrcVBox.setLayoutY(50 * 2 - 1);// 初始化在中间的位置
+			//清空之前的歌词时间
+			this.IrcList.clear();
+			this.currentLrcIndex = 0;
+			
+			//读取MP3文件
+			File mp3File = new File(this.currentPlayBean.getFilePath());
+			File lrcFile = new File(mp3File.getParent(),mp3File.getName().substring(0,mp3File.getName().indexOf(".")) + ".lrc");
+			//判断歌词文件是否存在
+			if(!lrcFile.exists()) {
+				return;
+			}
+			
+			//一次读取一行
+			try {
+				BufferedReader bufIn = new BufferedReader(new InputStreamReader(new FileInputStream(lrcFile),"GBK"));
+				String row = null;
+				while((row = bufIn.readLine()) != null) {
+					if(row.indexOf("[") == -1 || row.indexOf("]") == -1) {//不是有效行
+						continue;
+					}
+					if(row.charAt(1) < '0' || row.charAt(1) > '9') {
+						continue;//无效行
+					}
+					String strTime = row.substring(1, row.indexOf("]"));//00:00.70
+					String strMinute = strTime.substring(0,strTime.indexOf(":"));//分钟
+					String strSecond = strTime.substring(strTime.indexOf(":") + 1);//秒和毫秒
+					//转换为int的分钟
+					int intMinute = Integer.parseInt(strMinute);
+					//转换为总的毫秒
+					BigDecimal totalMilli = new BigDecimal(intMinute * 60).add(new BigDecimal(strSecond)).multiply(new BigDecimal("1000"));
+					this.IrcList.add(totalMilli);
+					
+					//创建歌词的Label
+					Label lab = new Label(row.trim().substring(row.indexOf("]") + 1)); //取出歌词文本
+					lab.setMinWidth(550);
+					lab.setMinHeight(35);
+					lab.setMaxHeight(35);
+					
+					lab.setPrefWidth(550);
+					lab.setPrefHeight(35);
+					lab.setTextFill(Color.rgb(53, 53, 53));
+					
+					lab.setFont(new Font("黑体",18));
+					lab.setAlignment(Pos.CENTER);
+					
+					//判断是否是第一个歌词，改为：30号，黄色
+					if(this.IrcVBox.getChildren().size() == 0) {
+						lab.setTextFill(Color.YELLOW);
+						lab.setFont(new Font("黑体",30));
+					}
+					
+					//判断是否是第二行
+					if(this.IrcVBox.getChildren().size() == 1) {
+						lab.setTextFill(Color.WHITE);
+					}
+					
+					//将歌词添加到IrcVBox中
+					this.IrcVBox.getChildren().add(lab);
+				}
+				
+				//添加最后一行，再加一行“2019年实训项目”
+				if(this.currentPlayBean.getMediaPlayer().getTotalDuration().toMinutes() -
+						this.IrcList.get(this.IrcList.size() - 1).doubleValue() > 0) {
+					Label lab = new Label("2019年实训项目");
+					lab.setMinWidth(550);
+					lab.setMinHeight(35);
+					lab.setMaxHeight(35);
+					
+					lab.setPrefWidth(550);
+					lab.setPrefHeight(35);
+					lab.setTextFill(Color.rgb(255, 0, 0));
+					lab.setFont(new Font("黑体",26));
+					lab.setAlignment(Pos.CENTER);
+					this.IrcVBox.getChildren().add(lab);
+					this.IrcList.add(new BigDecimal(this.currentPlayBean.getMediaPlayer().getTotalDuration().toMillis()));
+					
+				}
+			} catch (UnsupportedEncodingException | FileNotFoundException e) {
+				
+				e.printStackTrace();
+			} catch (IOException e) {
+				
+				e.printStackTrace();
+			}
+		}
+
+		//获取一个封装好的，带有歌单名称的HBox容器：里面包含：4个图片和一个文字标签
+		public HBox getGroupHBox(String groupName) {
+			//1.心形图片：ImageView
+			ImageView iv1 = new ImageView("img/left/xinyuanDark.png");
+			iv1.setFitWidth(15);
+			iv1.setPreserveRatio(true);
+			Label lab11 = new Label("",iv1);
+			lab11.setOnMouseEntered(ee->iv1.setImage(new Image("img/left/xinyuan.png")));
+			lab11.setOnMouseExited(ee->iv1.setImage(new Image("img/left/xinyuanDark.png")));
+			
+			//2.歌单名称：Label
+			Label labGroupName=new Label(groupName);
+			labGroupName.setMinHeight(0);
+			labGroupName.setPrefHeight(20);
+			labGroupName.setPrefWidth(150);
+			labGroupName.setTextFill(Color.rgb(210, 210, 210));
+			labGroupName.setOnMouseEntered(ee-> labGroupName.setTextFill(Color.WHITE));
+			labGroupName.setOnMouseExited(ee -> labGroupName.setTextFill(Color.rgb(210,210,210)));
+			
+			//3.播放图片：ImageView
+			ImageView iv2 = new ImageView("img/left/volumn_1_Dark.png");
+			iv2.setFitWidth(15);
+			iv2.setFitHeight(15);
+			Label lab22 = new Label("",iv2);
+			lab22.setOnMouseEntered(ee -> iv2.setImage(new Image("img/left/volumn_1.png")));
+			lab22.setOnMouseExited(ee -> iv2.setImage(new Image("img/left/volumn_1_Dark.png")));
+			//添加鼠标事件
+			lab22.setOnMouseClicked(ev -> {
+				//1.设置右边的“歌单名称”的Label
+				this.labGroupName.setText(labGroupName.getText().trim());
+				//2.读取此歌单下所有的歌曲
+				List<SoundBean> soundList = XMLUtils.findSoundByGroupName(this.labGroupName.getText().trim());
+	        	//3.解析每个歌曲文件，封装成PlayBean
+				List<PlayBean> playBeanList = new ArrayList<>();
+				for(int i = 0;i < soundList.size();i++) {
+					SoundBean soundBean = soundList.get(i);
+					PlayBean playBean = MP3Utils.readMP3(soundBean, i);
+					playBeanList.add(playBean);
+					
+				    
+					MediaPlayer mp = playBean.getMediaPlayer();
+					//添加监听播放的事件
+					mp.currentTimeProperty().addListener(new ChangeListener<Duration>() {
+
+						@Override
+						public void changed(ObservableValue<? extends Duration> observable, Duration oldValue,
+								Duration newValue) {
+							//1.由于每秒使滚动条滚动一次，获取newValue的秒
+							int currentSecond = (int)newValue.toSeconds();
+							
+							//2.设置滚动条，一秒一次
+							if(currentSecond == prevSecond + 1) {
+								sliderSong.setValue(sliderSong.getValue() + 1);
+								prevSecond++;
+								//设置播放时间
+								Date date =new Date();
+								date.setTime((int)sliderSong.getValue() * 1000);
+								labPlayTime.setText(new SimpleDateFormat("mm:ss").format(date));
+								
+							}
+						}
+						
+					});
+				}
+				
+				//将PlayBeanList显示到表格中
+				ObservableList<PlayBean> data = FXCollections.observableList(playBeanList);
+				this.tableView.getItems().clear();//清空表格
+				this.tableView.setItems(data);
+				
+			});
+			
+			//4.+符号：ImageView
+			ImageView iv3 = new ImageView("img/left/addDark.png");
+			iv3.setFitWidth(15);
+			iv3.setFitHeight(15);
+			Label lab3 = new Label("",iv3);
+			lab3.setOnMouseEntered(ee -> iv3.setImage(new Image("img/left/add(1).png")));
+			lab3.setOnMouseExited(ee -> iv3.setImage(new Image("img/left/addDark.png")));
+			//添加歌曲
+			lab3.setOnMouseClicked(ee -> {
+				//1.显示打开对话框
+				FileChooser fileChooser = new FileChooser();
+				fileChooser.setTitle("打开音乐文件");
+				//2.过滤文件
+				fileChooser.getExtensionFilters().addAll(
+						new FileChooser.ExtensionFilter("MP3","*.mp3"),
+						new FileChooser.ExtensionFilter("flac","*.flac"),
+						new FileChooser.ExtensionFilter("所有文件","*.*")
+						);
+				//3.显示对话框
+				List<File> fileList = fileChooser.showOpenMultipleDialog(primaryStage);
+				//遍历集合
+				if(fileList != null && fileList.size()>0) {
+					//将每个文件写入到MusicGroup.xml文件中
+					XMLUtils.insertSounds(labGroupName.getText().trim(),fileList);
+				}
+				
+			});
+			
+			//5.垃圾桶符号：ImageView
+			ImageView iv4 = new ImageView("img/left/laji_1_Dark.png");
+			iv4.setFitHeight(15);
+			iv4.setFitWidth(15);
+			Label lab4 = new Label("",iv4);
+			lab4.setOnMouseEntered(ee->iv4.setImage(new Image("img/left/laji_1.png")));
+			lab4.setOnMouseExited(ee->iv4.setImage(new Image("img/left/laji_1_Dark.png")));
+			
+			HBox hBox1 = new HBox(10);
+			hBox1.getChildren().addAll(lab11,labGroupName,lab22,lab3,lab4);
+			hBox1.setPadding(new Insets(5,5,5,10));
+			
+			//添加鼠标事件
+			lab4.setOnMouseClicked(ee->{
+				//1.弹出事件
+				Alert alert=new Alert(Alert.AlertType.CONFIRMATION);
+				alert.setTitle("确认删除");
+				alert.setHeaderText("你确定要删除歌单【" + labGroupName.getText().trim() + "】吗？");
+				//2.弹出
+				Optional<ButtonType> buttonType = alert.showAndWait();
+				if(buttonType.get() == ButtonType.OK) {
+					//在XML中删除此歌单，以及他内部所有的歌曲
+					XMLUtils.deleteGroup(labGroupName.getText().trim());
+					
+					//从groupVBox中删除
+					groupVBox.getChildren().remove(hBox1);
+				}
+			});
+			return hBox1;
+		}
+
+public static void main(String[] args) {
+		launch(args);
+
+	}
+}

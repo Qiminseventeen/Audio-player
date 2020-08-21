@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<groupList> 
+  <group name="我的最爱" addDate="2019-03-11 00:48:17"> 
+    <sound> 
+      <filePath>E:\MP3\陈瑞-白狐.mp3</filePath>  
+      <addDate>2019-03-11 00:48:30</addDate> 
+    </sound>  
+    <sound> 
+      <filePath>E:\MP3\丁当-手掌心(电视剧《兰陵王》片尾曲).mp3</filePath>  
+      <addDate>2019-03-11 00:48:30</addDate> 
+    </sound>  
+    <sound> 
+      <filePath>E:\MP3\高安&amp;杭娇-一生无悔.mp3</filePath>  
+      <addDate>2019-03-11 00:48:30</addDate> 
+    </sound>  
+    <sound> 
+      <filePath>E:\MP3\关喆-想你的夜.mp3</filePath>  
+      <addDate>2019-03-11 00:48:30</addDate> 
+    </sound>  
+    <sound> 
+      <filePath>E:\MP3\李行亮-愿得一人心.mp3</filePath>  
+      <addDate>2019-03-11 00:48:30</addDate> 
+    </sound> 
+  </group>  
+  <group name="关喆" addDate="2019-04-19 10:56:17"> 
+    <sound> 
+      <filePath>E:\MP3\关喆-想你的夜.mp3</filePath>  
+      <addDate>2019-04-19 10:56:58</addDate> 
+    </sound> 
+  </group>  
+  <group name="丁当" addDate="2019-04-25 21:56:48"> 
+    <sound> 
+      <filePath>E:\MP3\丁当-手掌心(电视剧《兰陵王》片尾曲).mp3</filePath>  
+      <addDate>2019-04-25 21:57:01</addDate> 
+    </sound> 
+  </group> 
+</groupList>
